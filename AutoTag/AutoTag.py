@@ -42,7 +42,7 @@ def binaryQuestion(question):
 def listDirectories():
     print("\nHere are the directories that will be altered:")
     dirList = []
-    for dir in os.listdir('.'):
+    for dir  in os.listdir('.'):
         if os.path.isdir(dir) and dir != 'venv' and dir != '.idea':
             dirList.append(dir)
             print(dir)
@@ -111,19 +111,53 @@ def getYear(folder, tags):
     return year
 
 
-def getArtist(artist):
-    tokens = artist.split()
+# Purpose: Properly capitalized album and song titles
+# Input: String to capitalize
+# Output: Properly capitalized string
+def fixCaps(string):
+    if ' ' in string:
+        tokens = string.split()
+    else:
+        tokens = string.split('_')
     allCaps = []
     for word in tokens:
-        if word == word.upper():
+        if word == word.upper() and len(word) > 1:
             allCaps.append(word)
-    artist = titlecase(artist)
-    return artist
+    string = titlecase(string)
+    tokens = string.split()
+    for word in tokens:
+        for capsString in allCaps:
+            if capsString.lower() == word.lower():
+                word = capsString
+    string = ' '.join(tokens)
+    return string
 
 
-# Purpose:
-    # WIP
-def trackTagger(tags, genre, year, folder, mp3):
+# Purpose: Locate 'Remastered' in a string and properly remove it
+# Input: String to test
+# Output: String without 'Remastered' sections
+def remasteredRemover(string):
+    tokens = string.split()
+    lowerTokens = []
+    for word in tokens:
+        lowerTokens.append(word.lower())
+    if 'remastered' in lowerTokens:
+        if string.endswith(')'):
+            string = string[:string.rfind('(')]
+            string = string.rstrip()
+            return string
+        else:
+            string = string[:string.rfind('-')]
+            string = string.rstrip()
+            return string
+    else:
+        return string
+
+
+# Purpose: Properly tag and rename each track
+# Input: MP3 file tags, user-entered tags, album folder and track name
+# Output: True if track is properly tagged, False otherwise
+def trackTagger(tags, genre, year, folder, mp3, track):
     tags['track'] = tags['track'][0:tags['track'].find('/')]
     try:
         trackNumber = int(tags['track'])
@@ -137,25 +171,44 @@ def trackTagger(tags, genre, year, folder, mp3):
         trackNumber = str(trackNumber)
     mp3.genre = genre
     mp3.year = year
-    artistName = getArtist(tags['artist'])
+    artistName = fixCaps(tags['artist'])
     mp3.artist = artistName
+    songName = fixCaps(tags['song'])
+    songName = remasteredRemover(songName)
+    mp3.song = songName
+    album = fixCaps(tags['album'])
+    album = remasteredRemover(album)
+    mp3.album = album
     mp3.save()
+    try:
+        os.rename(track, trackNumber + ' - ' + songName + '.mp3')
+    except ValueError as e:
+        if folder not in untagged:
+            untagged.append(folder)
+        return True
     return False
 
 
+# Purpose: Output untagged folders to a text file
+# Input: N/A
+# Output: 'Untagged.txt'
+def printUntagged():
+    if os.path.isfile('Untagged.txt'):
+        os.remove('Untagged.txt')
+    with open('Untagged.txt', 'a') as file:
+        file.write("The following albums could not be tagged, please tag them manually:\n")
+        for album in untagged:
+            file.write(album + '\n')
+
+
 def main():
-    print("Welcome to MusicTagger")
-    # time.sleep(1)
-    # Todo
-    print("\nBefore using, please:")
-    print("1. Read the User Guide")
-    print("2. Back up your music folder\n")
-    # time.sleep(2)
-    # Todo
+    print("Welcome to AutoTag")
+    time.sleep(1)
+    print("\nBefore using, please back up your music folder")
+    time.sleep(4)
     print("PLEASE NOTE: ANY NON-AUDIO FILES WILL BE DELETED\n")
-    # time.sleep(2)
-    # Todo
-    print("MP3 and FLAC files will be automatically tagged")
+    time.sleep(2)
+    print("MP3 files will be automatically tagged")
     print("Directories that cannot be tagged will be listed in 'Untagged.txt'")
     rootPath = os.path.dirname(os.path.realpath(__file__))
     flacList = []
@@ -174,15 +227,25 @@ def main():
             mp3 = MP3File(os.path.join(rootPath, folder, track))
             mp3.set_version(VERSION_2)
             tags = mp3.get_tags()
-            skipFolder = trackTagger(tags, genre, year, folder, mp3)
+            skipFolder = trackTagger(tags, genre, year, folder, mp3, track)
             if skipFolder:
                 successRate['Fail'] += 1
                 break
+        trackList, flacList = getFiles(folder, rootPath, flacList)
         mp3 = MP3File(os.path.join(rootPath, folder, trackList[0]))
+        mp3.set_version(VERSION_2)
         tags = mp3.get_tags()
-        # os.rename(folder, tags)
         os.chdir("..")
-        successRate['Pass'] += 1
+        try:
+            os.rename(folder, tags['artist'] + ' - ' + tags['album'])
+        except ValueError as e:
+            if folder not in untagged:
+                untagged.append(folder)
+                successRate['Fail'] += 1
+                continue
+        if folder not in untagged:
+            successRate['Pass'] += 1
+    printUntagged()
 
 
 main()
