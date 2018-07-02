@@ -10,3 +10,10 @@ Features:
 
 MAKE SURE TO BACK UP YOUR AUDIO FOLDER BEFORE USING
 
+To use:
+-Install 'titlecase' and 'mp3-tagger' modules through your preferred installation technique
+-Place folders containing tracks you with to tag in the same directory as AutoTag.py
+-Run AutoTag.py
+
+RUN IN A FOLDER SET ASIDE FOR AUTOTAG, NON-AUDIO FILES WILL BE DELETED
+
