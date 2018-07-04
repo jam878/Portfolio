@@ -42,10 +42,10 @@ def binaryQuestion(question):
 def listDirectories():
     print("\nHere are the directories that will be altered:")
     dirList = []
-    for dir  in os.listdir('.'):
-        if os.path.isdir(dir) and dir != 'venv' and dir != '.idea':
-            dirList.append(dir)
-            print(dir)
+    for directory in os.listdir('.'):
+        if os.path.isdir(directory) and directory != 'venv' and directory != '.idea':
+            dirList.append(directory)
+            print(directory)
     answer = binaryQuestion('')
     if not answer:
         print("Exiting...")
@@ -133,7 +133,21 @@ def fixCaps(string):
     return string
 
 
-# Purpose: Locate 'Remastered' in a string and properly remove it
+# Purpose: Strip 'Remastered' or 'Deluxe' from strings
+# Input: String containing key phrase
+# Output: Properly stripped string
+def stringStrip(string, lowerTokens):
+    if string.endswith(')'):
+        string = string[:string.rfind('(')]
+        string = string.rstrip()
+        return string
+    elif '-' in lowerTokens:
+        string = string[:string.rfind('-')]
+        string = string.rstrip()
+        return string
+
+
+# Purpose: Locate 'Remastered' or 'Deluxe' in a string and properly remove it
 # Input: String to test
 # Output: String without 'Remastered' sections
 def remasteredRemover(string):
@@ -142,14 +156,11 @@ def remasteredRemover(string):
     for word in tokens:
         lowerTokens.append(word.lower())
     if 'remastered' in lowerTokens:
-        if string.endswith(')'):
-            string = string[:string.rfind('(')]
-            string = string.rstrip()
-            return string
-        else:
-            string = string[:string.rfind('-')]
-            string = string.rstrip()
-            return string
+        string = stringStrip(string, lowerTokens)
+        return string
+    elif 'deluxe' in lowerTokens:
+        string = stringStrip(string, lowerTokens)
+        return string
     else:
         return string
 
@@ -163,7 +174,7 @@ def trackTagger(tags, genre, year, folder, mp3, track):
         trackNumber = int(tags['track'])
     except ValueError as e:
         if folder not in untagged:
-            untagged.append(folder)
+            untagged.append("   " + folder)
         return True
     if trackNumber < 10:
         trackNumber = str('0' + str(trackNumber))
@@ -184,8 +195,12 @@ def trackTagger(tags, genre, year, folder, mp3, track):
         os.rename(track, trackNumber + ' - ' + songName + '.mp3')
     except ValueError as e:
         if folder not in untagged:
-            untagged.append(folder)
+            untagged.append("   " + folder)
         return True
+    except FileNotFoundError as e:
+        if folder not in untagged:
+            untagged.append("*  " + folder)
+        return False
     return False
 
 
@@ -196,7 +211,8 @@ def printUntagged():
     if os.path.isfile('Untagged.txt'):
         os.remove('Untagged.txt')
     with open('Untagged.txt', 'a') as file:
-        file.write("The following albums could not be tagged, please tag them manually:\n")
+        file.write("The following albums could not be tagged, please tag them manually\n")
+        file.write("Albums noted with '*' contain single tracks that were not taggable\n")
         for album in untagged:
             file.write(album + '\n')
 
@@ -240,7 +256,7 @@ def main():
             os.rename(folder, tags['artist'] + ' - ' + tags['album'])
         except ValueError as e:
             if folder not in untagged:
-                untagged.append(folder)
+                untagged.append("   " + folder)
                 successRate['Fail'] += 1
                 continue
         if folder not in untagged:
@@ -252,5 +268,6 @@ main()
 
 print("\nTagging finished")
 print(successRate['Pass'], "folder(s) tagged")
+print("Check 'Untagged.txt' to see single-track tagging errors")
 if successRate['Fail'] != 0:
     print(successRate['Fail'], "folder(s) untagged, check 'Untagged.txt' for details")
